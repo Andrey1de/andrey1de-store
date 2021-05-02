@@ -10,8 +10,8 @@ import * as S from './src/common/http-status';
 
 
 import routes from './src/routes/index.route';
-import users from './src/routes/store.route';
-import { fork } from 'node:child_process';
+import { storeRouter } from './src/routes/store.route';
+//import { fork } from 'node:child_process';
 
 //const debug = require('debug')('my express app');
 const app = express();
@@ -60,7 +60,7 @@ app.set('view engine', 'pug');
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.use('/', routes);
-app.use('/store', users);
+app.use('/store', storeRouter);
 
 app.use('/enviro/get/:key?', (req: Request, res: Response) => {
 

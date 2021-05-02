@@ -2,7 +2,9 @@ import { remove } from "winston";
 import { EAction } from "../common/e-actions";
 import { MapStore , GetMapSore } from "../common/mapStore";
 import { StoreDto } from "../dtos/store.dto";
+import { SqlAction } from "../sql/sql-action";
 import { SqlAcionFactory } from "./action-broker";
+import { AsyncAction } from "./async-action";
 
 
 class FacadeInternal {						
@@ -17,19 +19,22 @@ class FacadeInternal {
 
 	}
 	async retrieveType$(table: string, kind: string, where: string = undefined)
-		: Promise<Array<StoreDto>> {
+		: Promise<AsyncAction> {
 		const foo : StoreDto = new StoreDto({  kind : kind,key : 'undefined'});
-		const task = await SqlAcionFactory.DoSqlAction
-			(EAction.List,table, foo, where);
+	
+		let action = new SqlAction(EAction.List, table, foo, where);
 
-		return GetMapSore(table).getType(kind);
+		let asyncAction:AsyncAction = await action.Do();
+
+		return asyncAction;
 	}
-	async retrieveItem$(table: string, kind: string, key: string): Promise<Array<StoreDto>> {
-		const foo = new StoreDto({ kind: kind, key: key });
-		const task = await SqlAcionFactory.DoSqlAction
-			(EAction.GetRow, table, foo, undefined);
+	async retrieveItem$(table: string, kind: string, key: string): Promise<AsyncAction> {
+		const foo: StoreDto = new StoreDto({ kind: kind, key: key });
+		let action = new SqlAction(EAction.GetRow, table, foo, undefined);
 
-		return GetMapSore(table).getType(kind);
+		let asyncAction: AsyncAction = await action.Do();
+
+		return asyncAction;
 	}
 
 	 deleteType(table: string, kind: string, where: string = undefined) : Array<StoreDto> {

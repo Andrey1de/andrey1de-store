@@ -49,32 +49,6 @@ class ActionBrokerClass {
 		ActionBrokerClass.Broker.next(action);
 	}
 
-	DoSqlAction(eAction: EAction,
-		table: string,
-		row: StoreDto,
-		where: string = undefined
-	): Promise<SqlAction> {
-		const action =
-			(new SqlAction(eAction, table, row, where));
-
-		const promise: Promise<SqlAction> = action.Do();
-			//action.Do().then( action => {
-			//					return action;
-			//					},
-			//				err => {
-			//					return undefined;
-			//				}
-			//).catch(  reason => {
-			//			return reason;
-			//		})
-
-
-		return promise;
-
-	}
-
-
-
 }
 
 export const SqlAcionFactory: ActionBrokerClass

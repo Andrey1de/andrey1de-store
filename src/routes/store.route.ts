@@ -112,7 +112,7 @@ router.get('/:queue/:kind', (req: Request, res: Response) => {
 	let retItems = retArray.map(p => p.jdata);
 
 	console.table(retArray);
-	res.send({ 'kind': p.kind, 'items': retItems }).status(S.OK).end();
+	res.send({ 'queue': p.queue, 'kind': p.kind, 'items': retItems }).status(S.OK).end();
 
 });
 
@@ -127,13 +127,13 @@ router.get('/:queue/:kind/:key', (req: Request, res: Response) => {
 
 	let mapItem = Facade.getItem(p.queue, p.kind, p.key)
 	if (!mapItem) {
-		let strr = `Not found kind:${p.kind} in store`;
+		let strr = `Not found kind:${p.kind} in store ${p.queue}`;
 		console.log(strr);
 		return res.send(strr).status(S.NO_CONTENT).end();
 
 	} else {
 		//let json = JSON.stringify(ret);
-		return res.send({ 'kind': p.kind, 'key': p.key, 'item': mapItem.jdata }).status(S.OK).end();
+		return res.send({'queue': p.queue,  'kind': p.kind, 'key': p.key, 'item': mapItem.jdata }).status(S.OK).end();
 
 	}
 
@@ -173,24 +173,21 @@ router.put('/:queue/:kind', (req: Request, res: Response) => {
 		return;
 	}
 	try {
-		const task = Facade.retrieveType$(p.kind, undefined)
+		
+		const _task = Facade.retrieveType$(p.kind, undefined)
 			.then(
-				arr => {
-					const arrJson = arr.map(p => p.jdata);
-					if (arr || arr.length <= 0) {
-						res.sendStatus(S.NOT_FOUND);
+				(action: AsyncAction) => {
+					if (action.Error) {
+						res.send(action.Error).status(action.Status).end();
 					} else {
-						res.send(arrJson).status(S.NOT_FOUND);
 
+						res.send(action.JData).status(action.Status).end();
 					}
-				},
-				err => {
-					res.send(err).status(S.CONFLICT);
-
+					return action;
 				}
-			).catch(err => {
+			) .catch(err => {
 				res.send(err).status(S.CONFLICT);
-
+				
 			});
 
 	} catch (err) {
@@ -214,18 +211,14 @@ router.put('/:queue/:kind/type/key', (req: Request, res: Response) => {
 	try {
 		const task = Facade.retrieveItem$(p.kind,p.key, undefined)
 			.then(
-				arr => {
-					const arrJson = arr.map(p => p.jdata);
-					if (arr || arr.length <= 0) {
-						res.sendStatus(S.NOT_FOUND);
+				(action: AsyncAction) => {
+					if (action.Error) {
+						res.send(action.Error).status(action.Status).end();
 					} else {
-						res.send(arrJson).status(S.NOT_FOUND);
 
+						res.send(action.JData[0]).status(action.Status).end();
 					}
-				},
-				err => {
-					res.send(err).status(S.CONFLICT);
-
+					return action;
 				}
 			).catch(err => {
 				res.send(err).status(S.CONFLICT);
@@ -272,5 +265,5 @@ router.delete('/:queue/:kind/:key', (req: Request, res: Response) => {
 
 
 
-export default router;
+export const storeRouter = router;
 

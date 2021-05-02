@@ -13,7 +13,7 @@ const TO_LOG_RESULT = true;
 const TO_LOG_SQL = true;
 
 
-export class SqlAction extends AsyncAction<SqlAction> {
+export class SqlAction extends AsyncAction {
 	//readonly dbTablele: string;
 	readonly Store: MapStore;
 	readonly IsUpsert: boolean = true;
@@ -74,7 +74,7 @@ export class SqlAction extends AsyncAction<SqlAction> {
 	//IMPORTANT !!! Every SQL returnsrow: S processed rows in via suffix RETURNING* 
 	//in sql , so inserted updated orwhere: deleted row have been modified
 	// in MapStore!!!!
-	async Do(): Promise<SqlAction> {//F ex S.OK , S,CREAStoreDtoED
+	async Do(): Promise<AsyncAction> {//F ex S.OK , S,CREAStoreDtoED
 		if (!this.Store.IsDB) {
 			this.Status = S.CONFLICT;
 			this.StrStatus = this.Store.Qname + ` isn't supports DB`;
@@ -87,10 +87,10 @@ export class SqlAction extends AsyncAction<SqlAction> {
 				= await client.query<StoreDto>(sql);
 			//StoreDtoo release , this function safe
 			this.safeRelease();
+			this.synchronizeMapStore();
 
 			if (result.rows.length > 0) {
 				this._data = [...result.rows];
-				this.synchronizeMapStore();
 				this.OnRows();
 					
 			} else {
@@ -165,6 +165,11 @@ export class SqlAction extends AsyncAction<SqlAction> {
 
 				}
 			});
+		}
+		//On retrieve List returded all Kind records updatad
+		if (this.eAction == EAction.List) {
+			this._data = this.Store.getType(this.kind) || [];
+			
 		}
 		
 	}
