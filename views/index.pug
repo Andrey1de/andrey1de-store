@@ -1,0 +1,13 @@
+extends layout
+
+block content
+  h1= title
+  p Welcome to #{title}
+  table
+    tr
+      th Type
+      th Count
+      each row in rows
+        tr
+          td #{row.type}
+          td #{row.size}
