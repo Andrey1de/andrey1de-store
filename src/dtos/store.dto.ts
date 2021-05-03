@@ -15,7 +15,7 @@ export class StoreDto {// implements IDto{
     constructor(that: any | undefined ) {
         this.fromAny(that);
 
-    }
+    }   
 
     fromAny(that: any) {
         if (that) {

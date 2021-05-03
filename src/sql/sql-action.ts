@@ -9,13 +9,9 @@ import { AsyncAction } from "../Dal/async-action";
 
 
 
-const TO_LOG_RESULT = true;
-const TO_LOG_SQL = true;
 
-
-export class SqlAction extends AsyncAction {
+export class SqlAction extends AsyncAction<SqlAction> {
 	//readonly dbTablele: string;
-	readonly Store: MapStore;
 	readonly IsUpsert: boolean = true;
 	readonly IsDelete: boolean = true;
 	readonly IsOneRow: boolean = true;
@@ -24,14 +20,28 @@ export class SqlAction extends AsyncAction {
 	readonly oldRow: StoreDto = undefined;
 	readonly kind: string;
 	readonly key: string;
+    private _StrStatus: string;
+	public  LogStatus() {
+		let strStatus = `${EAction[this.eAction]}::${S.StrStatus(this.Status)}`;
+		let strKey = (this.key) ? `/${this.key}` : '';
+		strStatus += `::[${this.table}/${this.kind}${strKey}]`;
+		if (!this.Error)
+			return `${strStatus}::RowCount=${this.Data.length}`;
+		else {
+			return `${strStatus}::Error=${this.Error}`;
 
-	constructor(readonly eAction: EAction,
-		readonly table: string,
-		readonly row: StoreDto,
-		readonly where: string = undefined
+		}
+	};
+	
+	
+
+
+	constructor(public readonly eAction: EAction,
+		table: string,
+		public readonly row: StoreDto,
+		public readonly where: string = undefined
 	) {
-		super();
-		this.Store = GetMapSore(this.table);
+		super(table);
 		this.IsDB = this.Store.IsDB;
 
 		this.IsOneRow = !(this.eAction == EAction.Delete ||
@@ -55,7 +65,7 @@ export class SqlAction extends AsyncAction {
 		}
 	}
 	protected validateAction() {
-		if (this.row) {
+		if (!this.row) {
 			throw new Error('CreateAction Undefined row instance');
 		}
 		if (!this.row.kind) {
@@ -65,19 +75,16 @@ export class SqlAction extends AsyncAction {
 			throw new Error('CreateAction Undefined  row.key');
 		}
 	}
-	//public async DoAnotherTask(eAction: EAction): Promise<Array<StoreDto>> {
-	//	const action = new SqlAction(eAction, this.table, this.row, this.where);
-	//	const ret = action.Do();
-	//	return ret;
-	
-	//}								 
 	//IMPORTANT !!! Every SQL returnsrow: S processed rows in via suffix RETURNING* 
 	//in sql , so inserted updated orwhere: deleted row have been modified
 	// in MapStore!!!!
-	async Do(): Promise<AsyncAction> {//F ex S.OK , S,CREAStoreDtoED
+	async Do(): Promise<SqlAction> {//F ex S.OK , S,CREAStoreDtoED
 		if (!this.Store.IsDB) {
-			this.Status = S.CONFLICT;
-			this.StrStatus = this.Store.Qname + ` isn't supports DB`;
+			this.Status = S.PRECONDITION_FAILED;
+
+
+			this.Error = new Error(this.Store.Qname + ` isn't supports DB`);
+
 			return this;
 		}
 		const sql = this.Sql;
@@ -86,25 +93,33 @@ export class SqlAction extends AsyncAction {
 			const result: QueryResult<StoreDto>
 				= await client.query<StoreDto>(sql);
 			//StoreDtoo release , this function safe
+			result.rows = result.rows || [];
+			this._data = [...result.rows];
 			this.safeRelease();
-			this.synchronizeMapStore();
 
 			if (result.rows.length > 0) {
-				this._data = [...result.rows];
-				this.OnRows();
-					
+				this.Status = S.OK;
+				if (this.IsUpsert) {
+					this.Status = (this._data[0].status == 0) ?
+						S.CREATED : S.OK;
+				}
+
 			} else {
 				this._data = [];
-				this.OnNoRows();
+				this.Status = S.NOT_FOUND;
+				if (this.IsUpsert) {
+					this.Status = S.OK;
+				}
 			}
-	
+			this.synchronizeMapStore();
+
 		} catch (e) {
 			this.Error = e;
-			this.OnErrorSql(e);
+			this.Status = S.CONFLICT;
 
 		} finally {
 			this.safeRelease();
-			this._done = true;
+			this.setDone(this);//!!!!! = true;
 		}
 		return this;
 
@@ -112,69 +127,47 @@ export class SqlAction extends AsyncAction {
 
 
 
-	OnRows() {
-		this.Status = S.OK;
-		this.StrStatus = 'OK::' + EAction[this.eAction]  ;
-		if (this.IsUpsert && this._data[0].status == 0) {
-			this.Status = S.CREATED;
-			this.StrStatus = 'CREATED::' + EAction[this.eAction];
-		}
-		if (TO_LOG_RESULT) {
-			this.LogRows();
-		}
-
-
-	}
-	OnNoRows() {
-		this.Status = S.NOT_FOUND;
-		this.StrStatus = 'NOT_FOUND::' + EAction[this.eAction];
-		if (TO_LOG_RESULT) {
-			this.LogRows();
-		}
-	}
-	OnErrorSql(e: any) {
-		if (TO_LOG_RESULT) {
-			this.StrStatus = 'ERROR::' + EAction[this.eAction];
-
-			console.log(`${this.StrStatus}::${e}`);
-		}
-		// throw new Error('Method not implemented.');
-	}
-
-	protected LogRows() {
-	
-			//let rowStr: string = '';
-			let strSql = (TO_LOG_SQL) ? `\n${this.Sql}` : '';
-			if (this.IsOneRow) {
-				console.log(`${this.StrStatus}::${EAction[this.eAction]}>>row[${this._data[0].toString(false)}]${strSql} `);
-
-			} else {
-				console.log(`${this.StrStatus}::${EAction[this.eAction]}${strSql} `);
-				console.table(this._data);
-
-			}
-	
-	}
 	synchronizeMapStore() {
-		if (this._data && this._data.length > 0) {
-			this._data.forEach(row => {
-				if (this.IsUpsert) {
-					this.Store.setItem(row.kind, row.key, row);
-				} else if (this.IsDelete) {
-					this.Store.removeItem(row.kind, row.key);
-
-				}
-			});
-		}
 		//On retrieve List returded all Kind records updatad
-		if (this.eAction == EAction.List) {
-			this._data = this.Store.getType(this.kind) || [];
+		if (this.eAction == EAction.DeleteRow) {
+			const old = this.Store.removeItem(this.kind, this.key)
+			this._data = (old) ? [old] : [];
 			
 		}
-		
+		//Returns old values
+		else if (this.eAction == EAction.Delete) {
+			let oldArr:StoreDto[] = [];
+			for (var item of (this._data || [])) {
+				let old = this.Store.removeItem(item.kind, item.key);
+				if (old) {
+					oldArr.push(old);
+				}
+			}
+			this._data = oldArr;
+;
+		}
+		else if (this.eAction == EAction.List) {
+			for (var item of (this._data ||[])) {
+				this.Store.setItem(item.kind,item.key,item);
+			}
+			const map = this.Store.get(this.kind);
+
+			this._data = [...map.values()];
+			
+		}
+
+		else //Upsert, UpsertRow Update = Returns new Records 
+		{
+			this.Store.setRange(this.kind, this.Data);
+			const map = this.Store.get(this.kind);
+			this._data = [...map.values()];
+			
+		}
+	
 	}
 
- 
+
+	
 
 	protected Client: PoolClient = undefined;
 

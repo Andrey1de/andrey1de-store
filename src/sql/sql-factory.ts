@@ -26,10 +26,10 @@ class SqlFactoryClass {
                 sql = SqlHolder.SqlDeleteRow(table, row);
                 break;
             case EAction.List:
-                sql = SqlHolder.SqlList(table, where);
+                sql = SqlHolder.SqlList(table,row.kind, where);
                 break;
             case EAction.Delete:
-                sql = SqlHolder.SqlDelete(table,where);
+                sql = SqlHolder.SqlDelete(table,row.kind,where);
                 break;
             default:
                 throw "Unsupported type: " + EAction[action];

@@ -47,7 +47,7 @@ console.log('DE QD');
 app.use(express.text());
 //app.use(express.raw());
 app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
+app.use(express.urlencoded({ extended: true }));
 
 //app.use(express.urlencoded({ extended: true }));
 app.use(cors());

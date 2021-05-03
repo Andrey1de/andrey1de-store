@@ -22,7 +22,7 @@ const router = express.Router();//AsyncRouter();///
 
 enum EGuard {
 	Zero = 0,
-	Type = 1,
+	Kind = 1,
 	Key = 2,
 	Body = 4
 
@@ -47,9 +47,9 @@ class GuardParams {
 		let queue = req?.params?.queue.toString() || 'memory';
 		this.mapStore = GetMapSore(queue);
 		this.queue = this.mapStore.Qname;
-		this.kind = req?.params?.kind?.toUpperCase();
-		this.key = req?.params?.key?.toUpperCase();
-		this.body = (req?.body?.item || req?.body);
+		this.kind = req?.params?.kind;
+		this.key = req?.params?.key;
+		this.body = req?.body?.item ;
 
 		this.status = this.validate();
 
@@ -63,8 +63,8 @@ class GuardParams {
 			this.error += `Bad parameter : db`;
 			this.status = S.BAD_REQUEST;
 		}
-		// // ever tested
-		if (!this.kind) {//(this.flags & EGuard.Type) && this.kind
+	
+		if ((this.flags & EGuard.Kind) && !this.kind) {//(this.flags & EGuard.Type) && this.kind
 			this.error += ((this.error) ? ' AND ' : '') + `Bad parameter: kind`;
 			this.error = `Bad parameter:kind `;
 			this.status = S.BAD_REQUEST;
@@ -95,31 +95,34 @@ class GuardParams {
 
 }
 
-///:queue/:kind This gets cache only
+///get/:queue/:kind This gets cache only
 router.get('/:queue/:kind', (req: Request, res: Response) => {
 	res.setHeader('content-kind', 'application/json');
-	let p: GuardParams = new GuardParams(req, res, EGuard.Type);
+	let p: GuardParams = new GuardParams(req, res, EGuard.Kind);
 	if (!p.OK) {
 		res.send(p.Status).status(S.BAD_REQUEST).end();
 		return;
 	}
 
-	let retArray = Facade.getType(p.queue, p.kind);
+	let retArray = Facade.getKind(p.queue, p.kind);
 
 	if (!retArray) {
-		return res.sendStatus(S.NO_CONTENT).end();
+		res.send({ 'queue': p.queue, 'kind': p.kind, 'items': [] }).status(S.NOT_FOUND).end();
+		return;
+
+	//return res.sendStatus(S.NOT_FOUND).end();
 	}
 	let retItems = retArray.map(p => p.jdata);
 
-	console.table(retArray);
+//	console.table(retArray);
 	res.send({ 'queue': p.queue, 'kind': p.kind, 'items': retItems }).status(S.OK).end();
 
 });
 
-///:queue/:kind/:key This gets cache only
+///get/:queue/:kind/:key This gets cache only
 router.get('/:queue/:kind/:key', (req: Request, res: Response) => {
 	res.setHeader('content-kind', 'application/json');
-	let p: GuardParams = new GuardParams(req, res, EGuard.Type | EGuard.Key);
+	let p: GuardParams = new GuardParams(req, res, EGuard.Kind | EGuard.Key);
 	if (!p.OK) {
 		res.send(p.Status).status(S.BAD_REQUEST).end();
 		return;
@@ -133,113 +136,92 @@ router.get('/:queue/:kind/:key', (req: Request, res: Response) => {
 
 	} else {
 		//let json = JSON.stringify(ret);
-		return res.send({'queue': p.queue,  'kind': p.kind, 'key': p.key, 'item': mapItem.jdata }).status(S.OK).end();
+		return res.send({
+			'queue': p.queue, 'kind': p.kind,
+			'key': p.key, 'item': mapItem.jdata
+		}).status(S.OK).end();
 
 	}
 
 });
 
-///:queue/:kind/:keyNew Item
+///:queue/:kind/type/key updsert one database record
 router.post('/:queue/:kind/:key', (req: Request, res: Response) => {
-	let p: GuardParams = new GuardParams(req, res, EGuard.Key);
+	res.setHeader('content-kind', 'application/json');
+	let p: GuardParams = new GuardParams(req, res, EGuard.Kind | EGuard.Key | EGuard.Body);
+
 	if (!p.OK) {
 		res.send(p.Status).status(S.BAD_REQUEST).end();
 		return;
 	}
-	var item = new StoreDto(undefined);
-	item.kind = p.kind;
-	item.key = p.key;
-	//item.id = item.hashCode;
-	item.stored = new Date();
-	item.store_to = new Date('2100-01-01');
-	item.jdata = p.body;
+	const body = p.body.data || p.body;
+	if (!body.jdata) {
+		res.send('the content not present').status(S.NO_CONTENT).end();
+		return;
 
-	var old = Facade.setItem(p.queue, p.kind, p.key, item);
+	}
+	const item = new StoreDto({ kind: p.kind, key: p.key, jdata: body.jdata });
+	const ret = Facade.setItem(p.queue, p.kind, item);
+	return res.send({
+		'queue': p.queue, 'kind': p.kind,
+		'key': p.key, 'item': ret.jdata
+	}).status(S.OK).end();
 
 
-
-	let status = (!old) ? S.CREATED : S.OK;
-
-	return res.send(item).status(status).end();
 
 });
-
 ///:queue/:kind Retrieve the database records
 router.put('/:queue/:kind', (req: Request, res: Response) => {
 	res.setHeader('content-kind', 'application/json');
-	let p: GuardParams = new GuardParams(req, res, EGuard.Type);
+	let p: GuardParams = new GuardParams(req, res, EGuard.Kind);
+
+
 	if (!p.OK) {
 		res.send(p.Status).status(S.BAD_REQUEST).end();
 		return;
 	}
-	try {
+
+		const strTab = `$[${p.queue}/${p.kind}]{_task.Guid}`;
+		const _task = Facade.synchronizeKind(p.queue, p.kind);
+		const subsc = _task.Ready.subscribe(action => {
+			
+				console.log(`'END retrieve ${strTab} ]`);
+				console.log(`New Added Items table`);
+				console.table(action.Data);
+
+				console.log(`All conent of [${p.queue}/${p.kind}]`);
+				const all = action.Store.getKind(action.kind)|| [];
+				console.table(all.map(p=>p));
+				subsc?.unsubscribe();
+
+
+			},
+			error => {
+				console.log(`'${strTab} : ERROR ${error}`);
+				subsc?.unsubscribe();
+			}
+		);
+
+		let load: any = {};
+		load.guid = _task.Guid.toString();
+		load.table = p.queue;
+		load.kind = p.kind;
 		
-		const _task = Facade.retrieveType$(p.kind, undefined)
-			.then(
-				(action: AsyncAction) => {
-					if (action.Error) {
-						res.send(action.Error).status(action.Status).end();
-					} else {
-
-						res.send(action.JData).status(action.Status).end();
-					}
-					return action;
-				}
-			) .catch(err => {
-				res.send(err).status(S.CONFLICT);
-				
-			});
-
-	} catch (err) {
-		res.send(err).status(S.CONFLICT);
-
-	}
+		console.log(`'${_task.Guid} : BEGIN retrieve ${strTab} `);
 
 
-
-
+		res.send ("BEGIN" + JSON.stringify(load)).status(S.OK).end();
 
 });
-///:queue/:kind Retrieve one database record
-router.put('/:queue/:kind/type/key', (req: Request, res: Response) => {
-	res.setHeader('content-kind', 'application/json');
-	let p: GuardParams = new GuardParams(req, res, EGuard.Type);
-	if (!p.OK) {
-		res.send(p.Status).status(S.BAD_REQUEST).end();
-		return;
-	}
-	try {
-		const task = Facade.retrieveItem$(p.kind,p.key, undefined)
-			.then(
-				(action: AsyncAction) => {
-					if (action.Error) {
-						res.send(action.Error).status(action.Status).end();
-					} else {
-
-						res.send(action.JData[0]).status(action.Status).end();
-					}
-					return action;
-				}
-			).catch(err => {
-				res.send(err).status(S.CONFLICT);
-
-			});
-
-	} catch (err) {
-		res.send(err).status(S.CONFLICT);
-
-	}
 
 
-
-});
-///:queue/:kind
+///delete/:queue/:kind/:key
 router.delete('/:queue/:kind', (req: Request, res: Response) => {
-	let p: GuardParams = new GuardParams(req, res, EGuard.Type | EGuard.Key);
+	let p: GuardParams = new GuardParams(req, res, EGuard.Kind | EGuard.Key);
 	if (!p.OK) {
 		return;
 	}
-	var old = Facade.deleteType(p.queue, p.kind, p.key) || [];
+	var old = Facade.removeItems(p.queue, p.kind ,undefined)|| [];
 
 	let status = (old.length > 0) ? S.OK : S.NOT_FOUND;
 
@@ -248,9 +230,9 @@ router.delete('/:queue/:kind', (req: Request, res: Response) => {
 	
 });
 
-//:queue/:kind/:key
+///delete/:queue/:kind/:key
 router.delete('/:queue/:kind/:key', (req: Request, res: Response) => {
-	let p: GuardParams = new GuardParams(req, res, EGuard.Type | EGuard.Key);
+	let p: GuardParams = new GuardParams(req, res, EGuard.Kind | EGuard.Key);
 	if (!p.OK) {
 		return;
 	}
@@ -267,3 +249,27 @@ router.delete('/:queue/:kind/:key', (req: Request, res: Response) => {
 
 export const storeRouter = router;
 
+/////new/:queue/:kind/:key - use set 
+//router.post('/new/:queue/:kind/:key', (req: Request, res: Response) => {
+//	let p: GuardParams = new GuardParams(req, res, EGuard.Key);
+//	if (!p.OK) {
+//		res.send(p.Status).status(S.BAD_REQUEST).end();
+//		return;
+//	}
+//	var item = new StoreDto(undefined);
+//	item.kind = p.kind;
+//	item.key = p.key;
+//	//item.id = item.hashCode;
+//	item.stored = new Date();
+//	item.store_to = new Date('2100-01-01');
+//	item.jdata = p.body;
+
+//	var old = Facade.setItem(p.queue, p.kind, p.key, item);
+
+
+
+//	let status = (!old) ? S.CREATED : S.OK;
+
+//	return res.send(item).status(status).end();
+
+//});

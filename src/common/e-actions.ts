@@ -1,4 +1,5 @@
 export enum EAction {
+	Error = -1,
 	Void = 0,
 	GetRow = 1,
 	UpsertRow = 2,

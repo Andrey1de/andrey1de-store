@@ -24,7 +24,7 @@ export class MapStore extends Map < string, Map < string, StoreDto >>
 	getItem(kind: string, key: string): StoreDto {
 		return this.get(kind)?.get(key);
 	}
-	getType(kind: string): Array<StoreDto> {
+	getKind(kind: string): Array<StoreDto> {
 		return this.has(kind) ? [...this.get(kind).values()] : undefined;
 	}
 
@@ -59,7 +59,7 @@ export class MapStore extends Map < string, Map < string, StoreDto >>
 	}
 	 //Returns array of old item that exists
 	setRange(kind: string, item: StoreDto[]) {
-		if (!item || item.length > 0) return[];
+		if (!item || item.length <= 0) return[];
 		let typeMap = this.getT(kind, true);
 		let arr: StoreDto[] = [];
 		item.forEach(
@@ -76,7 +76,7 @@ export class MapStore extends Map < string, Map < string, StoreDto >>
 	}
 	removeRange(kind: string, item: StoreDto[]): StoreDto[] {
 		let arr: StoreDto[] = [];
-		if (!item || item.length > 0) return arr;
+		if (!item || item.length <= 0) return arr;
 		let typeMap = this.getT(kind, false);
 		if (!typeMap) return arr;
 		item.forEach(

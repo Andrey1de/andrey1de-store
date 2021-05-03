@@ -71,9 +71,6 @@
     <TypeScriptCompile Include="src\common\e-actions.ts" />
     <TypeScriptCompile Include="src\Dal\action-broker.ts" />
     <TypeScriptCompile Include="src\Dal\dal-facade.ts" />
-    <TypeScriptCompile Include="src\dtos\IDto.ts">
-      <SubType>Code</SubType>
-    </TypeScriptCompile>
     <TypeScriptCompile Include="src\common\map.utils.ts" />
     <TypeScriptCompile Include="src\common\mapStore.ts">
       <SubType>Code</SubType>
@@ -81,6 +78,7 @@
     <TypeScriptCompile Include="src\Dal\async-action.ts">
       <SubType>Code</SubType>
     </TypeScriptCompile>
+    <TypeScriptCompile Include="src\Dal\package-sync.ts" />
     <TypeScriptCompile Include="src\dtos\store.dto.ts" />
     <TypeScriptCompile Include="src\env\env.controller.ts" />
     <TypeScriptCompile Include="src\sql\sql-action.ts" />
