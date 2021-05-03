@@ -17,6 +17,16 @@ export class MapStore extends Map < string, Map < string, StoreDto >>
 
 	}
 
+	getAllValues(): Array<StoreDto> {
+		let arr: StoreDto[] = [];
+		for (const [key,map] of this) {
+		
+			arr = [...arr, ...map.values()];
+		}
+		return arr;
+
+	}
+
 
 	hasItem(kind: string, key: string): boolean {
 		return this.get(kind)?.has(key);

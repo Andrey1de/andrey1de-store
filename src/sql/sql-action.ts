@@ -150,9 +150,13 @@ export class SqlAction extends AsyncAction<SqlAction> {
 			for (var item of (this._data ||[])) {
 				this.Store.setItem(item.kind,item.key,item);
 			}
-			const map = this.Store.get(this.kind);
+			if (this.kind == 'all') {
+  				this._data = this.Store.getAllValues();
+			} else {
+				const map = this.Store.get(this.kind);
+   				this._data = [...map.values()];
 
-			this._data = [...map.values()];
+			}
 			
 		}
 

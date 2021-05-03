@@ -1,6 +1,6 @@
 {
   "name": "andrey1de-store",
-  "version": "0.9.0",
+  "version": "1.0.0",
   "private": true,
   "scripts": {
     "build": "tsc --build",
@@ -9,7 +9,7 @@
     "prestart": "tsc --build",
     "postbuild": "copyfiles .env ./public/**/*.*  ./views/**/*.* dist/"
   },
-  "description": "Andrey1deStore",
+  "description": "Andrey1de Store in Progres DB",
   "author": {
     "name": "Andrey Dergachev @ 2021"
   },

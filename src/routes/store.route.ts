@@ -130,7 +130,7 @@ router.get('/:queue/:kind/:key', (req: Request, res: Response) => {
 
 	let mapItem = Facade.getItem(p.queue, p.kind, p.key)
 	if (!mapItem) {
-		let strr = `Not found kind:${p.kind} in store ${p.queue}`;
+		let strr = `Not found item:${p.kind}/${p.key} in store ${p.queue}`;
 		console.log(strr);
 		return res.send(strr).status(S.NO_CONTENT).end();
 
@@ -181,17 +181,17 @@ router.put('/:queue/:kind', (req: Request, res: Response) => {
 		return;
 	}
 
-		const strTab = `$[${p.queue}/${p.kind}]{_task.Guid}`;
-		const _task = Facade.synchronizeKind(p.queue, p.kind);
-		const subsc = _task.Ready.subscribe(action => {
+		const action = Facade.synchronizeKind(p.queue, p.kind);
+		const strTab = `$[${p.queue}/${p.kind}]${action.Guid}`;
+		const subsc = action.Ready.subscribe(action => {
 			
 				console.log(`'END retrieve ${strTab} ]`);
-				console.log(`New Added Items table`);
-				console.table(action.Data);
+			//	console.log(`New Added Items table`);
+			//	console.table(action.Data);
 
-				console.log(`All conent of [${p.queue}/${p.kind}]`);
-				const all = action.Store.getKind(action.kind)|| [];
-				console.table(all.map(p=>p));
+				//console.log(`All conent of [${p.queue}/${p.kind}]`);
+				//const all = action.Store.getKind(action.kind)|| [];
+				//console.table(all.map(p=>p));
 				subsc?.unsubscribe();
 
 
@@ -203,11 +203,11 @@ router.put('/:queue/:kind', (req: Request, res: Response) => {
 		);
 
 		let load: any = {};
-		load.guid = _task.Guid.toString();
+		load.guid = action.Guid.toString();
 		load.table = p.queue;
 		load.kind = p.kind;
 		
-		console.log(`'${_task.Guid} : BEGIN retrieve ${strTab} `);
+		console.log(`'BEGIN retrieve ${strTab} `);
 
 
 		res.send ("BEGIN" + JSON.stringify(load)).status(S.OK).end();
